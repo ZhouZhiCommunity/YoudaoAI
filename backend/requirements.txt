@@ -1,0 +1,16 @@
+# Flask Web框架
+Flask==3.0.0
+flask-cors==4.0.0
+
+# AI改写依赖
+zai==0.1.0
+
+# PDF处理依赖
+PyMuPDF==1.23.8
+reportlab==4.0.7
+
+# DOCX文件处理
+python-docx==1.1.0
+
+# 其他工具
+Werkzeug==3.0.1
