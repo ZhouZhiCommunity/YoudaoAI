@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>正在处理 - 有道计算机</title>
+    <style>
+        /* --- 1. 全局变量与背景 (与首页完全保持一致) --- */
+        :root {
+            --theme-yellow: #ffc107;
+            --theme-yellow-light: #fff9c4;
+            --theme-yellow-dark: #ffca28;
+            --theme-bg-gradient: linear-gradient(135deg, #fffbe0 0%, #fff176 100%);
+            --text-dark: #333;
+            --text-light: #666;
+            --highlight-color: #e67e22;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+
+        body {
+            background: var(--theme-bg-gradient);
+            color: var(--text-dark);
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+            overflow: hidden; /* 防止出现滚动条 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* --- 背景动效层 (复用首页代码) --- */
+        #background-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -5;
+        }
+
+        .ambient-blobs {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            filter: blur(80px);
+            opacity: 0.7;
+        }
+
+        .blob {
+            position: absolute;
+            background: rgba(255, 215, 0, 0.5);
+            border-radius: 50%;
+            animation: blob-float 20s infinite ease-in-out alternate;
+        }
+
+        .blob:nth-child(1) { width: 500px; height: 500px; top: -10%; left: -10%; background: rgba(255, 235, 59, 0.4); animation-duration: 25s; }
+        .blob:nth-child(2) { width: 600px; height: 600px; bottom: -15%; right: -15%; background: rgba(255, 193, 7, 0.3); animation-duration: 30s; animation-delay: -5s; }
+        .blob:nth-child(3) { width: 400px; height: 400px; bottom: 30%; left: 20%; background: rgba(255, 160, 0, 0.25); animation-duration: 22s; animation-delay: -10s; }
+
+        @keyframes blob-float {
+            0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+            100% { transform: translate(50px, -50px) scale(1.05) rotate(10deg); }
+        }
+
+        #particle-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        /* --- 2. 处理状态卡片 (参考图样式) --- */
+        .processing-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(15px);
+            width: 600px; /* 稍微宽一点，显得大气 */
+            padding: 50px 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(255, 193, 7, 0.2), inset 0 0 20px rgba(255, 255, 255, 0.8);
+            border: 2px solid rgba(255, 243, 224, 0.6);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            animation: card-entry 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes card-entry {
+            from { opacity: 0; transform: translateY(30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* 加载圈 Spinner */
+        .spinner-container {
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid #fff3e0; /* 浅底色 */
+            border-top: 5px solid var(--theme-yellow); /* 主题色 */
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 状态文字 */
+        .status-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 30px;
+            letter-spacing: 1px;
+        }
+
+        /* 进度条容器 */
+        .progress-wrapper {
+            width: 100%;
+            background-color: #f0f0f0;
+            height: 10px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        /* 进度条本体 */
+        .progress-bar {
+            height: 100%;
+            width: 0%; /* 初始宽度 */
+            background: linear-gradient(90deg, var(--theme-yellow) 0%, var(--highlight-color) 100%);
+            border-radius: 10px;
+            transition: width 0.4s ease;
+            position: relative;
+            box-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+        }
+
+        /* 进度条上的流光动画 */
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(
+                45deg, 
+                rgba(255,255,255,0.2) 25%, 
+                transparent 25%, 
+                transparent 50%, 
+                rgba(255,255,255,0.2) 50%, 
+                rgba(255,255,255,0.2) 75%, 
+                transparent 75%, 
+                transparent
+            );
+            background-size: 20px 20px;
+            animation: progress-stripe 1s linear infinite;
+        }
+
+        @keyframes progress-stripe {
+            0% { background-position: 0 0; }
+            100% { background-position: 20px 20px; }
+        }
+
+        /* 加载状态描述 */
+        .loading-text {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 15px;
+        }
+
+        /* 底部提示小字 */
+        .tip-text {
+            font-size: 12px;
+            color: #999;
+            line-height: 1.6;
+            max-width: 90%;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="background-container">
+        <div class="ambient-blobs">
+            <div class="blob"></div>
+            <div class="blob"></div>
+            <div class="blob"></div>
+        </div>
+        <canvas id="particle-canvas"></canvas>
+    </div>
+
+    <div class="processing-card">
+        <div class="spinner-container">
+            <div class="spinner"></div>
+        </div>
+
+        <div class="status-title">正在处理...</div>
+
+        <div class="progress-wrapper">
+            <div class="progress-bar" id="progress-bar" style="width: 5%"></div>
+        </div>
+
+        <div class="loading-text" id="status-text">正在加载数据...</div>
+
+        <div class="tip-text">
+            若长时间未处理结束，请返回网站首页，点击右上角「订单历史」，<br>
+            找到相对应的历史订单并点击「查看清理」
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 背景粒子动画 (与首页一致) ---
+        (function() {
+            const canvas = document.getElementById('particle-canvas');
+            const ctx = canvas.getContext('2d');
+            let width, height;
+            let particles = [];
+            let mouse = { x: null, y: null, radius: 150 };
+
+            function initSize() {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+            }
+
+            class Particle {
+                constructor() {
+                    this.x = Math.random() * width;
+                    this.y = Math.random() * height;
+                    this.size = Math.random() * 3 + 1;
+                    this.speedX = Math.random() * 1 - 0.5;
+                    this.speedY = Math.random() * 1 - 0.5;
+                    this.color = `rgba(255, 193, 7, ${Math.random() * 0.6 + 0.2})`;
+                }
+                update() {
+                    if (this.x > width || this.x < 0) this.speedX = -this.speedX;
+                    if (this.y > height || this.y < 0) this.speedY = -this.speedY;
+                    let dx = mouse.x - this.x;
+                    let dy = mouse.y - this.y;
+                    let distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < mouse.radius) {
+                        if (mouse.x < this.x && this.x < width - this.size * 10) this.x += 2;
+                        if (mouse.x > this.x && this.x > this.size * 10) this.x -= 2;
+                        if (mouse.y < this.y && this.y < height - this.size * 10) this.y += 2;
+                        if (mouse.y > this.y && this.y > this.size * 10) this.y -= 2;
+                    }
+                    this.x += this.speedX;
+                    this.y += this.speedY;
+                }
+                draw() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                }
+            }
+
+            function initParticles() {
+                particles = [];
+                let numberOfParticles = (width * height) / 15000;
+                for (let i = 0; i < numberOfParticles; i++) {
+                    particles.push(new Particle());
+                }
+            }
+
+            function connect() {
+                for (let a = 0; a < particles.length; a++) {
+                    for (let b = a; b < particles.length; b++) {
+                        let distance = ((particles[a].x - particles[b].x) * (particles[a].x - particles[b].x)) +
+                                       ((particles[a].y - particles[b].y) * (particles[a].y - particles[b].y));
+                        if (distance < (width / 7) * (height / 7)) {
+                            let opacityValue = 1 - (distance / 15000);
+                            ctx.strokeStyle = `rgba(255, 215, 0, ${opacityValue * 0.5})`;
+                            ctx.lineWidth = 1;
+                            ctx.beginPath();
+                            ctx.moveTo(particles[a].x, particles[a].y);
+                            ctx.lineTo(particles[b].x, particles[b].y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+
+            function animate() {
+                requestAnimationFrame(animate);
+                ctx.clearRect(0, 0, width, height);
+                for (let i = 0; i < particles.length; i++) {
+                    particles[i].update();
+                    particles[i].draw();
+                }
+                connect();
+            }
+
+            window.addEventListener('resize', () => { initSize(); initParticles(); });
+            window.addEventListener('mousemove', (e) => { mouse.x = e.x; mouse.y = e.y; });
+            window.addEventListener('mouseout', () => { mouse.x = undefined; mouse.y = undefined; });
+
+            initSize();
+            initParticles();
+            animate();
+        })();
+
+        // --- 2. 模拟进度条逻辑 (演示用) ---
+        // 实际开发中，这里应该通过 WebSocket 或轮询后端接口获取真实进度
+        (function() {
+            const progressBar = document.getElementById('progress-bar');
+            const statusText = document.getElementById('status-text');
+            let progress = 0;
+
+            const steps = [
+                { threshold: 20, text: "正在解析文档..." },
+                { threshold: 40, text: "正在分析AI特征..." },
+                { threshold: 70, text: "正在进行智能降重..." },
+                { threshold: 90, text: "正在生成最终报告..." },
+                { threshold: 100, text: "处理完成！" }
+            ];
+
+            function simulateProgress() {
+                if (progress < 100) {
+                    // 随机增加进度，模拟真实感
+                    const increment = Math.random() * 2; 
+                    progress = Math.min(progress + increment, 100);
+                    
+                    progressBar.style.width = progress + '%';
+
+                    // 更新文字状态
+                    const currentStep = steps.find(step => progress < step.threshold) || steps[steps.length - 1];
+                    statusText.innerText = currentStep.text;
+
+                    // 递归调用
+                    setTimeout(simulateProgress, 100); // 每100ms更新一次
+                } else {
+                    // 进度到达 100% 后的操作，比如跳转
+                    statusText.innerText = "处理完成，正在跳转...";
+                    // window.location.href = '/result'; // 实际跳转逻辑
+                }
+            }
+
+            // 启动模拟
+            setTimeout(simulateProgress, 500);
+        })();
+    </script>
+
+    <script>
+        // --- 页面加载后模拟处理并跳转结果页 ---
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const jobId = params.get('jobId') || `job-${Date.now()}`;
+
+            const statusTextEl = document.getElementById('status-text');
+            if (statusTextEl) {
+                statusTextEl.innerText = '正在提交任务...';
+                setTimeout(() => { statusTextEl.innerText = '正在处理...'; }, 200);
+            }
+
+            const redirectDelay = 1200; // 模拟处理耗时
+            setTimeout(() => {
+                window.location.href = `result.html?jobId=${encodeURIComponent(jobId)}`;
+            }, redirectDelay);
+        })();
+    </script>
+</body>
+</html>

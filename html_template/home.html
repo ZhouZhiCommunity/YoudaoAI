@@ -662,7 +662,9 @@
             <span class="subtitle-badge">AI率直接手降不下来？</span>
             <div class="sub-text">权威平台AIGC率从 100% 降至 <span class="highlight-orange">20.00%</span> 以下</div>
             <h1>降重 · <span>降AI</span></h1>
-            <div class="sub-desc">超十亿文本实测，达标率超过97%，<span class="highlight-orange">1000字免费试用</span></div>
+            <div class="sub-desc">超十亿文本实测，达标率超过97%，
+                <span class="highlight-orange">1000字免费试用</span>
+            </div>
         </div>
 
         <div class="upload-card">
@@ -827,7 +829,7 @@
 
         // --- 拖拽上传逻辑 ---
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, preventDefaults, false);
+        uploadArea.addEventListener(eventName, preventDefaults, false);
         });
 
         function preventDefaults(e) {
@@ -975,6 +977,55 @@
             initParticles();
             animate();
         })();
+
+        // --- 提交并跳转到处理中页面（模拟后端请求） ---
+        const actionBtn = document.getElementById('action-btn');
+
+        async function submitJob() {
+            const activeTab = document.querySelector('.tab-btn.active');
+            const isTextMode = activeTab && activeTab.id === 'tab-text';
+            const formData = new FormData();
+            formData.append('mode', isTextMode ? 'text' : 'file');
+
+            if (isTextMode) {
+                const textArea = document.querySelector('.text-input-area');
+                const content = textArea.value.trim();
+                if (!content) {
+                    alert('请先输入文本内容');
+                    return;
+                }
+                formData.append('content', content); // 与文件共用同一字段
+            } else {
+                const file = fileInput.files[0];
+                if (!file) {
+                    alert('请先选择文件');
+                    return;
+                }
+                formData.append('content', file); // 与文本共用同一字段
+            }
+
+            try {
+                const jobId = await mockSubmitToBackend(formData);
+                window.location.href = `process.html?jobId=${encodeURIComponent(jobId)}`;
+            } catch (error) {
+                console.error('提交失败', error);
+                alert('提交失败，请稍后重试');
+            }
+        }
+
+        function mockSubmitToBackend(formData) {
+            // 这里模拟后端接口，返回一个 jobId
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    const fakeJobId = `job-${Date.now()}`;
+                    resolve(fakeJobId);
+                }, 600);
+            });
+        }
+
+        if (actionBtn) {
+            actionBtn.addEventListener('click', submitJob);
+        }
     </script>
 </body>
 </html>

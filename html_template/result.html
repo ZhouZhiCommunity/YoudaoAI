@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>处理完成 - 有道计算机</title>
+    <style>
+        /* --- 1. 全局变量 --- */
+        :root {
+            --theme-yellow: #ffc107;
+            --theme-yellow-light: #fff9c4;
+            --theme-bg-gradient: linear-gradient(135deg, #fffbe0 0%, #fff176 100%);
+            --text-dark: #333;
+            --text-light: #666;
+            --highlight-color: #e67e22;
+            --danger-red: #ff4d4f;
+            --success-green: #52c41a;
+            --bg-gray: #f7f9fc;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-gray);
+            color: var(--text-dark);
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* --- 2. 背景动效 --- */
+        #background-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -5;
+            opacity: 0.6;
+        }
+        #particle-canvas { width: 100%; height: 100%; }
+
+        /* --- 3. 顶部导航 --- */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 40px;
+            background: rgba(255, 253, 235, 0.85); 
+            backdrop-filter: blur(15px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 30px rgba(255, 193, 7, 0.1); 
+        }
+
+        .logo { display: flex; align-items: center; cursor: pointer; text-decoration: none;}
+        .logo-img { width: 48px; height: 48px; margin-right: 12px; border-radius: 8px; }
+        .logo-text {
+            font-family: "YouYuan", "Microsoft YaHei UI", sans-serif;
+            font-size: 28px; font-weight: 800; letter-spacing: 1px; color: #5d4037; 
+            text-shadow: 2px 2px 0px #ffc107, 4px 4px 0px rgba(255, 193, 7, 0.2);
+            transform: skewX(-5deg); display: inline-block;
+        }
+        nav a { text-decoration: none; color: #6d4c41; font-size: 16px; font-weight: 600; }
+        nav a:hover { color: var(--highlight-color); }
+
+        /* --- 4. 核心布局 (Grid Layout) --- */
+        .main-wrapper {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: 1fr 320px; /* 左侧自适应，右侧固定宽 */
+            gap: 25px;
+            align-items: start;
+        }
+
+        /* --- 左侧内容区 --- */
+        .content-column {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding-bottom: 60px;
+        }
+
+        /* 【关键修改 1：控制结果卡片的间距】 */
+        #result-container {
+            display: flex;
+            flex-direction: column;
+            gap: 25px; /* 这里控制卡片之间的距离 */
+        }
+
+        /* 结果段落卡片 */
+        .result-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .result-card:hover {
+            box-shadow: 0 5px 20px rgba(255, 193, 7, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .paragraph-text {
+            font-size: 16px;
+            line-height: 1.8;
+            text-align: justify;
+            word-break: break-all;
+        }
+
+        /* 颜色状态修饰 */
+        .status-red { border-left: 5px solid var(--danger-red); }
+        .status-green { border-left: 5px solid var(--success-green); }
+        .status-black { border-left: 5px solid #ccc; }
+        
+        .status-red .paragraph-text { color: #5a5a5a; }
+
+        /* 状态标签 */
+        .status-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .badge-red { background: #fff1f0; color: var(--danger-red); }
+        .badge-green { background: #f6ffed; color: var(--success-green); }
+
+        /* 底部按钮 */
+        .back-btn-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .back-btn {
+            background: linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%);
+            color: #fff;
+            border: none;
+            padding: 12px 60px;
+            font-size: 18px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: 700;
+            box-shadow: 0 6px 20px rgba(255, 77, 79, 0.3);
+            transition: transform 0.2s;
+        }
+        .back-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(255, 77, 79, 0.4); }
+
+        /* --- 右侧侧边栏 --- */
+        .sidebar-column {
+            position: sticky;
+            top: 100px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .sidebar-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+            border: 1px solid #eee;
+        }
+
+        /* 统计卡片样式 */
+        .stat-header { font-size: 14px; color: var(--text-light); margin-bottom: 5px; }
+        .stat-number { font-size: 32px; font-weight: 800; color: var(--text-dark); margin-bottom: 15px; font-family: Arial, sans-serif; }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+        .stat-label { color: var(--text-light); }
+        .stat-value { font-weight: 700; }
+        .val-red { color: var(--danger-red); }
+        .val-green { color: var(--success-green); }
+
+        .progress-container { margin-top: 15px; }
+        .progress-bg { height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #ffc107, #ff9800); width: 100%; border-radius: 4px; }
+        .progress-text { display: flex; justify-content: space-between; font-size: 12px; color: #999; margin-top: 5px; }
+
+        /* --- 【关键修改 2：右侧链接样式，支持图标】 --- */
+        .link-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .link-title::before { content: '🔍'; }
+
+        .link-item {
+            display: flex;           /* Flex布局让图标和文字并排 */
+            align-items: center;     /* 垂直居中 */
+            gap: 12px;               /* 图标和文字的间距 */
+            
+            background: #f9f9f9;
+            border: 1px solid #eee;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            text-decoration: none;
+            color: var(--text-dark);
+            transition: all 0.2s;
+        }
+        .link-item:hover {
+            background: #fff;
+            border-color: var(--theme-yellow);
+            color: var(--highlight-color);
+            transform: translateX(2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        /* 平台图标样式 */
+        .platform-icon {
+            width: 32px;  /* 图标大小 */
+            height: 32px;
+            border-radius: 6px;
+            object-fit: contain; 
+            background: #fff; /* 防止透明png在灰底看不清 */
+            border: 1px solid #eee;
+            padding: 2px;
+            flex-shrink: 0;
+        }
+
+        /* 包裹文字区域 */
+        .link-text-wrapper {
+            flex: 1; 
+            display: flex;
+            flex-direction: column;
+        }
+
+        .link-name { font-weight: 600; font-size: 14px; line-height: 1.4; }
+        .link-desc { font-size: 12px; color: #999; margin-top: 2px; }
+        .link-arrow { font-size: 14px; color: #ccc; }
+
+    </style>
+</head>
+<body>
+
+    <div id="background-container">
+        <canvas id="particle-canvas"></canvas>
+    </div>
+
+    <header>
+        <a href="home.html" class="logo">
+            <img src="./有道计算机.jpg" alt="有道计算机 Logo" class="logo-img"> 
+            <span class="logo-text">有道计算机</span>
+        </a>
+        <nav>
+            <a href="home.html">返回首页</a>
+        </nav>
+    </header>
+
+    <div class="main-wrapper">
+        
+        <div class="content-column">
+            <div id="result-container">
+                <div style="padding:40px; text-align:center; color:#999;">正在渲染结果...</div>
+            </div>
+
+            <div class="back-btn-container">
+                <button class="back-btn" onclick="window.location.href='home.html'">返回首页</button>
+            </div>
+        </div>
+
+        <aside class="sidebar-column">
+            
+            <div class="sidebar-card">
+                <div class="stat-header">总字符数</div>
+                <div class="stat-number" id="total-chars">0</div>
+                
+                <div class="stat-row">
+                    <span class="stat-label">原文AI率</span>
+                    <span class="stat-value val-red">100%</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">改后AI率</span>
+                    <span class="stat-value val-green">0%</span>
+                </div>
+                
+                <div class="progress-container">
+                    <div class="progress-bg">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span>处理进度</span>
+                        <span style="color:var(--highlight-color)">100%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-card">
+                <div class="link-title">常用检测平台入口</div>
+                
+                <a href="https://cx.cnki.net/" target="_blank" class="link-item">
+                    <!-- <img src="./知网.png" alt="知网" class="platform-icon" onerror="this.src='https://via.placeholder.com/32?text=C'"> -->
+                    
+                    <div class="link-text-wrapper">
+                        <div class="link-name">中国知网</div>
+                        <div class="link-desc">权威学术检测平台</div>
+                    </div>
+                    <span class="link-arrow">↗</span>
+                </a>
+                
+                <a href="http://vpcs.cqvip.com/" target="_blank" class="link-item">
+                     <!-- <img src="./icon_vip.png" alt="维普" class="platform-icon" onerror="this.src='https://via.placeholder.com/32?text=V'"> -->
+                    
+                    <div class="link-text-wrapper">
+                        <div class="link-name">维普网</div>
+                        <div class="link-desc">专业论文查重</div>
+                    </div>
+                    <span class="link-arrow">↗</span>
+                </a>
+
+                <a href="https://www.wanfangdata.com.cn/" target="_blank" class="link-item">
+                     <!-- <img src="./icon_wf.png" alt="万方" class="platform-icon" onerror="this.src='https://via.placeholder.com/32?text=W'"> -->
+                    
+                    <div class="link-text-wrapper">
+                        <div class="link-name">万方数据</div>
+                        <div class="link-desc">学术大数据检测</div>
+                    </div>
+                    <span class="link-arrow">↗</span>
+                </a>
+
+                <a href="https://www.paperyy.com/" class="link-item">
+                     <!-- <img src="./icon_turnitin.png" alt="Turnitin" class="platform-icon" onerror="this.src='https://via.placeholder.com/32?text=T'"> -->
+                    
+                    <div class="link-text-wrapper">
+                        <div class="link-name">Paperyy</div>
+                        <div class="link-desc">免费Ai查重</div>
+                    </div>
+                    <span class="link-arrow">↗</span>
+                </a>
+
+                <a href="https://www.paperred.com/" class="link-item">
+                     <!-- <img src="./icon_turnitin.png" alt="Turnitin" class="platform-icon" onerror="this.src='https://via.placeholder.com/32?text=T'"> -->
+                    
+                    <div class="link-text-wrapper">
+                        <div class="link-name">Paperred</div>
+                        <div class="link-desc">年度备受欢迎的学术辅助工具平台</div>
+                    </div>
+                    <span class="link-arrow">↗</span>
+                </a>
+
+                <a href="https://www.paperccb.com/" class="link-item">
+                     <!-- <img src="./icon_turnitin.png" alt="Turnitin" class="platform-icon" onerror="this.src='https://via.placeholder.com/32?text=T'"> -->
+                    
+                    <div class="link-text-wrapper">
+                        <div class="link-name">Paperccb</div>
+                        <div class="link-desc">700万大学生都在用的论文查重平台</div>
+                    </div>
+                    <span class="link-arrow">↗</span>
+                </a>
+
+                <a href="https://www.paperpass.com/" class="link-item">
+                     <!-- <img src="./icon_turnitin.png" alt="Turnitin" class="platform-icon" onerror="this.src='https://via.placeholder.com/32?text=T'"> -->
+                    
+                    <div class="link-text-wrapper">
+                        <div class="link-name">Paperpass</div>
+                        <div class="link-desc">满血版免费查重</div>
+                    </div>
+                    <span class="link-arrow">↗</span>
+                </a>
+            </div>
+
+        </aside>
+
+    </div>
+
+    <script>
+        // --- 1. 背景粒子动画脚本 ---
+        (function() {
+            const canvas = document.getElementById('particle-canvas');
+            const ctx = canvas.getContext('2d');
+            let width, height;
+            let particles = [];
+            
+            function initSize() {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+            }
+            class Particle {
+                constructor() {
+                    this.x = Math.random() * width;
+                    this.y = Math.random() * height;
+                    this.size = Math.random() * 3 + 1;
+                    this.speedX = Math.random() * 0.5 - 0.25; 
+                    this.speedY = Math.random() * 0.5 - 0.25;
+                    this.color = `rgba(255, 193, 7, ${Math.random() * 0.4 + 0.1})`; 
+                }
+                update() {
+                    if (this.x > width || this.x < 0) this.speedX = -this.speedX;
+                    if (this.y > height || this.y < 0) this.speedY = -this.speedY;
+                    this.x += this.speedX;
+                    this.y += this.speedY;
+                }
+                draw() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                }
+            }
+            function initParticles() {
+                particles = [];
+                let numberOfParticles = (width * height) / 20000; 
+                for (let i = 0; i < numberOfParticles; i++) {
+                    particles.push(new Particle());
+                }
+            }
+            function connect() {
+                for (let a = 0; a < particles.length; a++) {
+                    for (let b = a; b < particles.length; b++) {
+                        let distance = ((particles[a].x - particles[b].x)**2) + ((particles[a].y - particles[b].y)**2);
+                        if (distance < (width/7) * (height/7)) {
+                            let opacityValue = 1 - (distance / 20000);
+                            ctx.strokeStyle = `rgba(255, 215, 0, ${opacityValue * 0.3})`;
+                            ctx.lineWidth = 1;
+                            ctx.beginPath();
+                            ctx.moveTo(particles[a].x, particles[a].y);
+                            ctx.lineTo(particles[b].x, particles[b].y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+            function animate() {
+                requestAnimationFrame(animate);
+                ctx.clearRect(0, 0, width, height);
+                for (let i = 0; i < particles.length; i++) {
+                    particles[i].update();
+                    particles[i].draw();
+                }
+                connect();
+            }
+            window.addEventListener('resize', () => { initSize(); initParticles(); });
+            initSize(); initParticles(); animate();
+        })();
+
+        // --- 2. 核心逻辑：渲染后端数据 ---
+        
+        const mockBackendData = [
+            {
+                'text': '随着人工智能技术的飞速发展，大语言模型（LLM）在各个领域的应用日益广泛。然而，AIGC内容的泛滥也给学术诚信带来了挑战。',
+                'color': 'black' 
+            },
+            {
+                'text': '本文旨在探讨一种基于深度学习的文本降重算法。该算法通过语义重构和同义词替换，有效降低了文本的AI特征值。实验表明，该方法在保持原文逻辑连贯性的同时，显著提高了文本的原创度。',
+                'color': 'green' 
+            },
+            {
+                'text': 'MySQL 是一种开源的关系型数据库管理系统，广泛应用于 Web 应用开发。本系统采用 MySQL 8.0.28 作为数据库，存储用户信息、帖子内容、评论数据等系统数据。',
+                'color': 'red' 
+            },
+            {
+                'text': 'WebSocket 是一种在单个 TCP 连接上进行全双工通信的协议，允许服务器主动向客户端推送数据。相比传统的 HTTP 轮询，WebSocket 减少了网络开销，提高了实时通信效率。',
+                'color': 'red' 
+            },
+            {
+                'text': '综上所述，采用Spring Boot框架结合Vue前端技术，能够快速构建出高性能、易维护的Web应用系统。这一架构模式已成为当前企业级开发的主流选择。',
+                'color': 'green' 
+            }
+        ];
+
+        function renderResults(data) {
+            const container = document.getElementById('result-container');
+            const totalCharsElement = document.getElementById('total-chars');
+            
+            container.innerHTML = ''; 
+            let totalLength = 0;
+
+            data.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = `result-card status-${item.color}`;
+                
+                let badgeHtml = '';
+                if(item.color === 'red') {
+                    badgeHtml = '<div class="status-badge badge-red">高风险</div>';
+                } else if(item.color === 'green') {
+                    badgeHtml = '<div class="status-badge badge-green">已降重</div>';
+                }
+
+                card.innerHTML = `
+                    ${badgeHtml}
+                    <p class="paragraph-text">${item.text}</p>
+                `;
+
+                card.style.animation = `fadeInUp 0.5s ease forwards ${index * 0.1}s`;
+                card.style.opacity = '0';
+                container.appendChild(card);
+
+                totalLength += item.text.length;
+            });
+
+            totalCharsElement.innerText = totalLength;
+        }
+
+        const styleSheet = document.createElement("style");
+        styleSheet.innerText = `
+            @keyframes fadeInUp {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        `;
+        document.head.appendChild(styleSheet);
+
+        renderResults(mockBackendData);
+
+    </script>
+</body>
+</html>
