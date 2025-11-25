@@ -148,9 +148,20 @@ def rewrite_file():
                 # 处理DOCX文件
                 try:
                     doc = Document(tmp_file_path)
+                    # 如果是标题就放到缓冲区，合并到下一段里
+                    buffer = ''
                     for idx, para in enumerate(doc.paragraphs):
                         if para.text.strip():
                             original_text = para.text.strip()
+
+                            if len(original_text) < 10:
+                                buffer += original_text
+                                continue
+                            if buffer:
+                                original_text = buffer + "\n" + original_text
+
+                            buffer = ''
+
                             rewritten_text = rewrite_paper_paragraph(
                                 paragraph=original_text,
                                 temperature=temperature,
@@ -192,7 +203,6 @@ def rewrite_file():
             'success': False,
             'error': f'文件处理失败: {str(e)}'
         }), 500
-
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
